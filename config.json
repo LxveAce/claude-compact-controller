@@ -1,0 +1,5 @@
+{
+    "vault_max_entries": 10,
+    "vault_transcript_tail_bytes": 50000,
+    "log_enabled": false
+}
