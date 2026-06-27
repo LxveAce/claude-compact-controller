@@ -4,6 +4,26 @@ Smart auto-compact management for Claude Code. Prevents context loss during comp
 
 Zero dependencies — just Node.js (which ships with Claude Code) and three small hook scripts.
 
+<!-- STATUS-ROADMAP:START -->
+## Status & Roadmap
+
+**Status:** Installable, crash-safe, zero-dependency hook bundle; the install/uninstall/status flow and fail-safe error handling are working. Two headline behaviors (Stop-hook token fields and PostCompact recovery-pointer injection) are still being verified against the live Claude Code hook contract. Health: actively under development.
+
+**In progress / known issues:**
+- Verifying against the live Claude Code hook contract whether the Stop hook receives token fields and whether PostCompact honors injected recovery context — token tracking and the post-compact pointer depend on these.
+- Reconciling the canonical install path with the downstream catalyst-ui consumer so both tools recognize the same hook location.
+- Windows stdin-handling reliability fix in progress (tracked upstream as anthropics/claude-code#46601).
+
+**Roadmap:**
+- Publish a versioned data-contract doc for `state.json`, `vault-*.json` naming, and config keys.
+- Add machine-readable `node status.js --json` output.
+- Add a `doctor` / self-check command (resolved install path, hooks present in settings, live-contract findings, path-mismatch detection).
+- Make the install path configurable (env var / setting) so non-default clone locations stay recognizable.
+- Cut a real tagged release so installs are pinnable.
+- Add atomic writes and restrictive permissions for shared state/config files, plus documented handling of sensitive vault contents.
+- Add a minimal dependency-free smoke harness and CI across Linux and Windows runners.
+<!-- STATUS-ROADMAP:END -->
+
 ## Problem
 
 When Claude Code auto-compacts, it summarizes the conversation to free up context-window space. That summary can drop details Claude was relying on — files it edited, decisions it made, or multi-step operations still in progress. The Compact Controller wraps the compact lifecycle so a full backup is captured first and a pointer back to it is handed to Claude afterward.
