@@ -46,6 +46,7 @@ const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, log } = require(
         const output = {
             continue: true,
             hookSpecificOutput: {
+                hookEventName: 'PostCompact',
                 additionalContext: vaultContext
             }
         };

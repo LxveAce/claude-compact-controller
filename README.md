@@ -61,7 +61,19 @@ node install.js
 
 This appends three hooks to your user-level `~/.claude/settings.json` (Stop, PreCompact `auto`, PostCompact `auto`) and creates the runtime directories. It is safe to run multiple times — already-installed hooks are detected and skipped, and existing unrelated hooks are preserved. If your settings file exists but can't be parsed, it is backed up to `settings.json.bak` before being rewritten.
 
+Hook ownership is detected by the resolved hooks-directory path (an exact path match, the same scheme `catalyst-ui` uses), so installs by either tool are recognized and never duplicated.
+
 Restart Claude Code after installing for the hooks to take effect.
+
+### Install path
+
+By default the installer registers hooks from the directory it is run from, so both the canonical `~/claude-compact-controller` location and arbitrary clones work. To pin a specific install root, set `CLAUDE_COMPACT_CONTROLLER_HOME` before running install/uninstall:
+
+```bash
+CLAUDE_COMPACT_CONTROLLER_HOME=/opt/claude-compact-controller node install.js
+```
+
+The same variable controls where `config.json` is resolved from.
 
 ## Uninstall
 
@@ -78,6 +90,14 @@ node status.js
 ```
 
 Prints the current token-tracking state (session, context tokens, output tokens, turns, vaults created) and lists all vault backups with their timestamps, turn counts, and token estimates.
+
+For a stable, machine-readable surface (consumed by tools such as catalyst-ui), use:
+
+```bash
+node status.js --json
+```
+
+This emits the full state plus a vault listing as JSON with a `schema_version` field. The exact shape is frozen in [`docs/DATA-CONTRACT.md`](docs/DATA-CONTRACT.md).
 
 ## Configuration
 

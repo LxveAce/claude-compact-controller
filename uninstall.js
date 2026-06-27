@@ -9,6 +9,26 @@ const os = require('os');
 
 const SETTINGS_PATH = path.join(os.homedir(), '.claude', 'settings.json');
 
+// Mirror install.js: resolve the install home (env-overridable) and match
+// hooks by our resolved hooks-directory path, recognizing both the nested
+// shape this tool writes and the flat shape catalyst-ui writes. Fall back to
+// the legacy "compact-controller" substring so older installs are still removable.
+const INSTALL_HOME = process.env.CLAUDE_COMPACT_CONTROLLER_HOME
+    ? path.resolve(process.env.CLAUDE_COMPACT_CONTROLLER_HOME)
+    : __dirname;
+const HOOKS_ROOT_NORM = path.join(INSTALL_HOME, 'hooks').replace(/\\/g, '/');
+
+function isOurHookCommand(command) {
+    if (typeof command !== 'string') return false;
+    const norm = command.replace(/\\/g, '/');
+    return norm.includes(HOOKS_ROOT_NORM) || norm.includes('compact-controller');
+}
+
+function entryIsOurs(h) {
+    if (isOurHookCommand(h?.command)) return true;
+    return Array.isArray(h?.hooks) && h.hooks.some(hh => isOurHookCommand(hh?.command));
+}
+
 console.log('=== Claude Compact Controller - Uninstall ===\n');
 
 let settings = {};
@@ -29,9 +49,7 @@ for (const event of ['Stop', 'PreCompact', 'PostCompact']) {
     if (!settings.hooks[event]) continue;
 
     const before = settings.hooks[event].length;
-    settings.hooks[event] = settings.hooks[event].filter(h =>
-        !h.hooks?.some(hh => hh.command?.includes('compact-controller'))
-    );
+    settings.hooks[event] = settings.hooks[event].filter(h => !entryIsOurs(h));
     const after = settings.hooks[event].length;
 
     if (before > after) {

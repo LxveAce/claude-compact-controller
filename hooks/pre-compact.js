@@ -6,7 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, loadConfig, log } = require('../lib/shared');
+const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, loadConfig, log, atomicWriteFileSync } = require('../lib/shared');
 
 (async () => {
     try {
@@ -57,16 +57,19 @@ const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, loadConfig, log 
         };
 
         const vaultFile = path.join(VAULT_DIR, `vault-${ts}.json`);
-        fs.writeFileSync(vaultFile, JSON.stringify(vaultEntry, null, 2), 'utf8');
+        atomicWriteFileSync(vaultFile, JSON.stringify(vaultEntry, null, 2));
 
-        // Prune old vaults
+        // Prune old vaults: keep exactly the newest `maxVaults` files.
+        // Sorted ascending (oldest first); everything except the trailing
+        // `maxVaults` entries is deleted. `slice(0, -maxVaults)` returns the
+        // oldest files to remove, so exactly `maxVaults` newest are retained.
         const maxVaults = config.vault_max_entries || 10;
         const vaultFiles = fs.readdirSync(VAULT_DIR)
             .filter(f => f.startsWith('vault-') && f.endsWith('.json'))
-            .sort()
-            .reverse();
+            .sort();
 
-        for (const old of vaultFiles.slice(maxVaults)) {
+        const toDelete = maxVaults > 0 ? vaultFiles.slice(0, -maxVaults) : vaultFiles;
+        for (const old of toDelete) {
             try { fs.unlinkSync(path.join(VAULT_DIR, old)); } catch {}
         }
 
@@ -81,6 +84,7 @@ const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, loadConfig, log 
         const output = {
             continue: true,
             hookSpecificOutput: {
+                hookEventName: 'PreCompact',
                 additionalContext: [
                     '[Compact Controller] Pre-compact vault backup saved.',
                     `Session had ${state.turn_count} turns with ~${state.input_tokens} context tokens.`,
