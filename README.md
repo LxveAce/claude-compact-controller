@@ -1,5 +1,7 @@
 # Claude Compact Controller
 
+> Provided **as is**, without warranty; you use it at your own risk. See [DISCLAIMER.md](DISCLAIMER.md).
+
 Smart auto-compact management for Claude Code. Prevents context loss during compaction by saving vault backups of conversation state and injecting recovery references after the compact runs.
 
 Zero dependencies — just Node.js (which ships with Claude Code) and three small hook scripts.
