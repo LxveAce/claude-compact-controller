@@ -9,21 +9,23 @@ Zero dependencies — just Node.js (which ships with Claude Code) and three smal
 <!-- STATUS-ROADMAP:START -->
 ## Status & Roadmap
 
-**Status:** Installable, crash-safe, zero-dependency hook bundle; the install/uninstall/status flow and fail-safe error handling are working. Two headline behaviors (Stop-hook token fields and PostCompact recovery-pointer injection) are still being verified against the live Claude Code hook contract. Health: actively under development.
+**Status:** Installable, crash-safe, zero-dependency hook bundle; the install/uninstall/status flow and fail-safe error handling are working. Token tracking now reads real usage from the session transcript (the Stop payload itself carries no token fields) and is covered by an automated test suite. The remaining unverified behavior is the PostCompact recovery-pointer injection against the live Claude Code hook contract. Health: actively under development.
 
 **In progress / known issues:**
-- Verifying against the live Claude Code hook contract whether the Stop hook receives token fields and whether PostCompact honors injected recovery context — token tracking and the post-compact pointer depend on these.
-- Reconciling the canonical install path with the downstream catalyst-ui consumer so both tools recognize the same hook location.
-- Windows stdin-handling reliability fix in progress (tracked upstream as anthropics/claude-code#46601).
+- PostCompact recovery-pointer injection is still being verified against the live Claude Code hook contract; the pre-compact vault backup itself is written unconditionally regardless.
+- Once token values are non-zero end to end, confirm the downstream catalyst-ui consumer renders them correctly (it previously consumed zeros).
+
+**Recently landed:**
+- Transcript-based token tracking (replaces the always-zero Stop-payload read).
+- Atomic, owner-only (`0o600`) writes for shared state/config/vault files.
+- Machine-readable `node status.js --json` output, frozen in `docs/DATA-CONTRACT.md`.
+- Configurable install path (`CLAUDE_COMPACT_CONTROLLER_HOME`) with path-based, catalyst-ui-aligned hook dedupe.
+- BOM/CRLF/empty-safe stdin handling for Windows PowerShell pipes.
+- A minimal, dependency-free test suite (`npm test`) plus CI.
 
 **Roadmap:**
-- Publish a versioned data-contract doc for `state.json`, `vault-*.json` naming, and config keys.
-- Add machine-readable `node status.js --json` output.
 - Add a `doctor` / self-check command (resolved install path, hooks present in settings, live-contract findings, path-mismatch detection).
-- Make the install path configurable (env var / setting) so non-default clone locations stay recognizable.
 - Cut a real tagged release so installs are pinnable.
-- Add atomic writes and restrictive permissions for shared state/config files, plus documented handling of sensitive vault contents.
-- Add a minimal dependency-free smoke harness and CI across Linux and Windows runners.
 <!-- STATUS-ROADMAP:END -->
 
 ## Problem
@@ -34,7 +36,7 @@ When Claude Code auto-compacts, it summarizes the conversation to free up contex
 
 Three hooks work together across the auto-compact lifecycle:
 
-1. **Stop hook** — fires after every Claude response. Tracks the current context-window size (`input_tokens`), accumulates output tokens, and increments a turn counter in a persistent state file. Counters reset automatically when a new session starts.
+1. **Stop hook** — fires after every Claude response. Reads the latest usage from the session transcript (the Stop payload carries no token fields) to track the current context-window size (`input_tokens`), accumulates output tokens across turns, and increments a turn counter in a persistent state file. Counters reset automatically when a new session starts.
 
 2. **PreCompact hook** (matcher `auto`) — fires right before auto-compaction. Reads the tail of the conversation transcript and writes it to a timestamped vault file, then prunes old vaults beyond the retention limit. Injects an `additionalContext` message so Claude knows a backup was saved.
 
@@ -136,13 +138,13 @@ claude-compact-controller/          # This repo
 
 ## Vault Format
 
-Each vault file is JSON:
+Each vault file is JSON (values below are illustrative):
 
 ```json
 {
     "timestamp": "2026-05-21T14:30:00.000Z",
     "session_id": "abc123",
-    "trigger": "auto-compact",
+    "trigger": "auto",
     "context_tokens": 185000,
     "output_tokens_total": 42000,
     "turn_count": 47,
@@ -151,10 +153,12 @@ Each vault file is JSON:
 }
 ```
 
+> **Privacy:** `transcript_tail` is a plaintext excerpt of your conversation and may contain secrets, tokens, or other sensitive data. Vault files are written owner-only (`0o600`) under `~/.claude/compact-controller/vault/` and must never be committed to or synced from a public repo.
+
 ## Notes
 
-- `input_tokens` reflects the full context-window size reported for a turn, not an incremental delta.
-- stdin parsing strips a leading UTF-8 BOM, so the hooks work when fed JSON through Windows PowerShell pipes as well as POSIX shells.
+- `input_tokens` reflects the full context-window size for a turn (fresh + cache-read + cache-created tokens), read from the transcript — not an incremental delta.
+- stdin parsing strips a leading UTF-8 BOM and normalizes CRLF, so the hooks work when fed JSON through Windows PowerShell pipes as well as POSIX shells.
 
 ## Requirements
 
