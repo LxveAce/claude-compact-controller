@@ -30,11 +30,12 @@ missing keys and apply their own defaults.
 | Field                  | Type             | Written by      | Meaning |
 |------------------------|------------------|-----------------|---------|
 | `session_id`           | string \| null   | stop-hook       | Current Claude session id. |
-| `input_tokens`         | number           | stop-hook       | Full context-window size reported for the most recent turn (not incremental). |
-| `output_tokens`        | number           | stop-hook       | Cumulative output tokens for the session. |
+| `input_tokens`         | number           | stop-hook       | Full context-window size for the most recent turn (fresh + cache-read + cache-created tokens), read from the transcript. Not incremental. |
+| `output_tokens`        | number           | stop-hook       | Cumulative output tokens for the session, accumulated from the transcript across turns. |
 | `turn_count`           | number           | stop-hook       | Number of turns since session start (or since last post-compact reset). |
-| `last_stop_reason`     | string \| null   | stop-hook       | `stop_reason` from the last Stop event. |
+| `last_stop_reason`     | string \| null   | stop-hook       | `stop_reason` for the last turn (from the Stop payload if present, else the transcript). |
 | `last_transcript_path` | string \| null   | stop-hook       | Path to the transcript file for the current session. |
+| `last_usage_uuid`      | string \| null   | stop-hook       | uuid of the last assistant message whose output was counted; de-dupes output accumulation. Internal; consumers may ignore. |
 | `vault_count`          | number           | pre-compact     | Number of vaults created in this session. |
 | `last_vault_file`      | string \| null   | pre-compact     | Absolute path of the most recently written vault file. |
 
