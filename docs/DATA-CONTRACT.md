@@ -40,8 +40,10 @@ missing keys and apply their own defaults.
 | `last_vault_file`      | string \| null   | pre-compact     | Absolute path of the most recently written vault file. |
 
 Reset behavior:
-- New session (stop-hook sees a changed `session_id`): `output_tokens`,
-  `turn_count`, `vault_count` reset to `0`.
+- New session (stop-hook sees a changed `session_id`): `input_tokens`,
+  `output_tokens`, `turn_count`, `vault_count` reset to `0`, and
+  `last_vault_file` / `last_usage_uuid` reset to `null`, so no session-scoped
+  field is carried over from the previous session.
 - Post-compact: `input_tokens`, `output_tokens`, `turn_count` reset to `0`.
 
 Consumed by catalyst-ui: `session_id`, `input_tokens`, `output_tokens`,
@@ -78,7 +80,7 @@ Single JSON object, written atomically (temp + rename, mode `0o600`).
 |-----------------------|--------|---------|
 | `timestamp`           | string | ISO-8601 creation time. |
 | `session_id`          | string \| null | Session that triggered the vault. |
-| `trigger`             | string | Currently always `"auto-compact"`. |
+| `trigger`             | string | PreCompact trigger reported by Claude Code (`"auto"` \| `"manual"`); defaults to `"auto"` (the installed matcher). |
 | `context_tokens`      | number | Context-window size (`input_tokens`) at vault time. |
 | `output_tokens_total` | number | Cumulative output tokens at vault time. |
 | `turn_count`          | number | Turns captured at vault time. |

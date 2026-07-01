@@ -20,9 +20,14 @@ const { readStdin, loadState, saveState, ensureDirs, readLatestUsageFromTranscri
 
         const isNewSession = hookData.session_id && hookData.session_id !== state.session_id;
         if (isNewSession) {
+            // Reset every session-scoped field together so consumers never see
+            // a fresh session's vault_count:0 next to a stale input_tokens or
+            // last_vault_file carried over from the previous session.
+            state.input_tokens = 0;
             state.output_tokens = 0;
             state.turn_count = 0;
             state.vault_count = 0;
+            state.last_vault_file = null;
             state.last_usage_uuid = null;
         }
 

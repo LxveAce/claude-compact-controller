@@ -48,7 +48,9 @@ const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, loadConfig, log,
         const vaultEntry = {
             timestamp: new Date().toISOString(),
             session_id: hookData?.session_id || state.session_id,
-            trigger: 'auto-compact',
+            // Record the real PreCompact trigger reported by Claude Code
+            // ("auto" | "manual"); fall back to "auto" (the installed matcher).
+            trigger: hookData?.trigger || 'auto',
             context_tokens: state.input_tokens || 0,
             output_tokens_total: state.output_tokens || 0,
             turn_count: state.turn_count || 0,
