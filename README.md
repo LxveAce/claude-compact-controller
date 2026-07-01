@@ -9,10 +9,10 @@ Zero dependencies — just Node.js (which ships with Claude Code) and three smal
 <!-- STATUS-ROADMAP:START -->
 ## Status & Roadmap
 
-**Status:** Installable, crash-safe, zero-dependency hook bundle; the install/uninstall/status flow and fail-safe error handling are working. Token tracking now reads real usage from the session transcript (the Stop payload itself carries no token fields) and is covered by an automated test suite. The remaining unverified behavior is the PostCompact recovery-pointer injection against the live Claude Code hook contract. Health: actively under development.
+**Status:** Installable, crash-safe, zero-dependency hook bundle; the install/uninstall/status flow and fail-safe error handling are working. Token tracking now reads real usage from the session transcript (the Stop payload itself carries no token fields) and is covered by an automated test suite. The post-compact recovery pointer is injected through the **SessionStart `compact`** hook — the correct channel per the Claude Code hook contract, since PostCompact has no decision control and cannot return `additionalContext`. Health: actively under development.
 
 **In progress / known issues:**
-- PostCompact recovery-pointer injection is still being verified against the live Claude Code hook contract; the pre-compact vault backup itself is written unconditionally regardless.
+- The post-compact recovery pointer now uses the SessionStart `compact` hook (the event class that supports `additionalContext`; PostCompact does not) — a live end-to-end confirmation on a real auto-compaction is still worth doing. The pre-compact vault backup file is written unconditionally regardless.
 - Once token values are non-zero end to end, confirm the downstream catalyst-ui consumer renders them correctly (it previously consumed zeros).
 
 **Recently landed:**
@@ -40,7 +40,7 @@ Three hooks work together across the auto-compact lifecycle:
 
 2. **PreCompact hook** (matcher `auto`) — fires right before auto-compaction. Reads the tail of the conversation transcript and writes it to a timestamped vault file, then prunes old vaults beyond the retention limit. Injects an `additionalContext` message so Claude knows a backup was saved.
 
-3. **PostCompact hook** (matcher `auto`) — fires right after compaction finishes. Injects a message pointing Claude to the most recent vault file so it can recover any lost context, then resets the token/turn counters for fresh post-compact tracking.
+3. **SessionStart hook** (matcher `compact`) — fires right after auto or manual compaction. Injects a message pointing Claude to the most recent vault file so it can recover any lost context, then resets the token/turn counters for fresh post-compact tracking. (It runs `hooks/post-compact.js`; it must be SessionStart, not PostCompact — only SessionStart-class events can inject `additionalContext` into the model.)
 
 ```
 Normal operation:        Stop hook tracks tokens each turn
@@ -49,7 +49,7 @@ Auto-compact triggers:   PreCompact saves vault backup + prunes old vaults
                               |
 Compact runs:            Conversation is summarized
                               |
-Post-compact:            PostCompact injects vault reference, resets counters
+Post-compact:            SessionStart(compact) injects vault reference, resets counters
                               |
 Claude continues:        Can read the vault file if context was lost
 ```
@@ -63,7 +63,7 @@ cd claude-compact-controller
 node install.js
 ```
 
-This appends three hooks to your user-level `~/.claude/settings.json` (Stop, PreCompact `auto`, PostCompact `auto`) and creates the runtime directories. It is safe to run multiple times — already-installed hooks are detected and skipped, and existing unrelated hooks are preserved. If your settings file exists but can't be parsed, it is backed up to `settings.json.bak` before being rewritten.
+This appends three hooks to your user-level `~/.claude/settings.json` (Stop, PreCompact `auto`, SessionStart `compact`) and creates the runtime directories. It is safe to run multiple times — already-installed hooks are detected and skipped, and existing unrelated hooks are preserved. If your settings file exists but can't be parsed, it is backed up to `settings.json.bak` before being rewritten.
 
 Hook ownership is detected by the resolved hooks-directory path (an exact path match, the same scheme `catalyst-ui` uses), so installs by either tool are recognized and never duplicated.
 
@@ -120,7 +120,7 @@ claude-compact-controller/          # This repo
 ├── hooks/
 │   ├── stop-hook.js                # Token tracking (Stop event)
 │   ├── pre-compact.js              # Vault backup (PreCompact event)
-│   └── post-compact.js             # Vault reference injection (PostCompact event)
+│   └── post-compact.js             # Vault reference injection (SessionStart:compact event)
 ├── lib/
 │   └── shared.js                   # Shared utilities (paths, state, config, stdin, logging)
 ├── config.json                     # Configuration

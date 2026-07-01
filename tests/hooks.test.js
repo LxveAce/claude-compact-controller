@@ -113,7 +113,7 @@ test('pre-compact records the real trigger and emits valid JSON', () => {
 });
 
 test('pre-compact and post-compact fail safe (exit 0, valid JSON) on bad stdin', () => {
-    for (const [script, evt] of [['pre-compact.js', 'PreCompact'], ['post-compact.js', 'PostCompact']]) {
+    for (const [script, evt] of [['pre-compact.js', 'PreCompact'], ['post-compact.js', 'SessionStart']]) {
         for (const bad of ['', 'not json at all', '﻿{bad', '{"partial":']) {
             const home = makeHome();
             try {

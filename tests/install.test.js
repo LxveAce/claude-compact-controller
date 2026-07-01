@@ -56,7 +56,7 @@ test('install registers all three hook events', () => {
         const r = run('install.js', home);
         assert.strictEqual(r.status, 0, r.stderr);
         const settings = readSettings(home);
-        for (const event of ['Stop', 'PreCompact', 'PostCompact']) {
+        for (const event of ['Stop', 'PreCompact', 'SessionStart']) {
             assert.strictEqual(countOurs(settings, event), 1, `${event} should be installed once`);
         }
     } finally {
@@ -70,7 +70,7 @@ test('install is idempotent: a second run adds no duplicate entries', () => {
         run('install.js', home);
         run('install.js', home);
         const settings = readSettings(home);
-        for (const event of ['Stop', 'PreCompact', 'PostCompact']) {
+        for (const event of ['Stop', 'PreCompact', 'SessionStart']) {
             assert.strictEqual(countOurs(settings, event), 1, `${event} must not be duplicated`);
         }
     } finally {
@@ -121,7 +121,7 @@ test('uninstall removes exactly our hooks and leaves others intact', () => {
         assert.strictEqual(r.status, 0, r.stderr);
 
         const afterUninstall = readSettings(home);
-        for (const event of ['Stop', 'PreCompact', 'PostCompact']) {
+        for (const event of ['Stop', 'PreCompact', 'SessionStart']) {
             assert.strictEqual(countOurs(afterUninstall, event), 0, `${event} must be removed`);
         }
         // The foreign Stop hook must still be present.

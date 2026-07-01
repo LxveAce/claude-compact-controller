@@ -1,8 +1,9 @@
 #!/usr/bin/env node
 
-// PostCompact hook (matcher: "auto"): fires after auto-compaction completes.
-// Injects a reference to the vault backup so Claude knows where to find
-// pre-compaction context if needed. Resets token tracking counters.
+// Post-compaction recovery hook — registered under SessionStart (matcher: "compact"), which fires after
+// auto OR manual compaction. It must be SessionStart, not PostCompact: PostCompact has no decision control
+// and cannot return additionalContext, so a pointer injected there is silently dropped. SessionStart
+// supports additionalContext, so the vault reference actually reaches the model. Also resets the counters.
 
 const fs = require('fs');
 const path = require('path');
@@ -41,12 +42,12 @@ const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, log } = require(
         state.turn_count = 0;
         saveState(state);
 
-        log('PostCompact: counters reset, vault reference injected');
+        log('SessionStart(compact): counters reset, vault reference injected');
 
         const output = {
             continue: true,
             hookSpecificOutput: {
-                hookEventName: 'PostCompact',
+                hookEventName: 'SessionStart',
                 additionalContext: vaultContext
             }
         };

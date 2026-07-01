@@ -45,7 +45,10 @@ if (!settings.hooks) {
 }
 
 let removed = 0;
-for (const event of ['Stop', 'PreCompact', 'PostCompact']) {
+// SessionStart is where the recovery hook now lives; PostCompact is kept so a legacy install (which
+// registered under PostCompact) is still cleanly removable. Removal is command-matched, so other tools'
+// SessionStart hooks are preserved.
+for (const event of ['Stop', 'PreCompact', 'SessionStart', 'PostCompact']) {
     if (!settings.hooks[event]) continue;
 
     const before = settings.hooks[event].length;

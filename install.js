@@ -83,8 +83,12 @@ const hookConfigs = {
             timeout: 10
         }]
     },
-    PostCompact: {
-        matcher: 'auto',
+    // The post-compact recovery pointer is injected via additionalContext, which the PostCompact event
+    // does NOT support (it has no decision control — side-effects only, per the Claude Code hook contract).
+    // SessionStart with matcher "compact" fires after auto OR manual compaction AND supports
+    // additionalContext, so the recovery pointer actually reaches the model. (Runs hooks/post-compact.js.)
+    SessionStart: {
+        matcher: 'compact',
         hooks: [{
             type: 'command',
             command: hookCmd('post-compact.js'),

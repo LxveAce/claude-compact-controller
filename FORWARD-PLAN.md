@@ -6,7 +6,7 @@
 **What it is:** A small, zero-dependency Node.js bundle of Claude Code lifecycle hooks that prevents context loss during auto-compaction. Three coordinated hooks:
 - **Stop hook** (`hooks/stop-hook.js`, matcher `''`) - fires after each response; reads real usage from the session transcript (the Stop payload carries no token fields), tracks `input_tokens` (full context-window size) + cumulative `output_tokens` + a turn counter in `~/.claude/compact-controller/state.json`.
 - **PreCompact hook** (`hooks/pre-compact.js`, matcher `auto`) - before auto-compaction, saves the transcript tail (default 50KB) to a timestamped `vault-*.json`, prunes to exactly `vault_max_entries` newest, records the real `trigger` (`auto`|`manual`), injects an `additionalContext` note.
-- **PostCompact hook** (`hooks/post-compact.js`, matcher `auto`) - after compaction, injects a pointer to the latest vault and resets counters.
+- **SessionStart hook** (`hooks/post-compact.js`, matcher `compact`) - after auto/manual compaction, injects a pointer to the latest vault and resets counters. Must be SessionStart, not PostCompact: PostCompact has no decision control and cannot return `additionalContext` (verified against the Claude Code hook docs).
 
 CLIs: `install.js` / `uninstall.js` patch `~/.claude/settings.json` (idempotent, path-based dedupe, backup-on-unparseable); `status.js` prints state + vault listing, or `--json` for the machine-readable surface. `lib/shared.js` centralizes paths, stdin parsing, atomic state/config load-save, transcript-usage parsing, logging.
 
@@ -36,7 +36,7 @@ CLIs: `install.js` / `uninstall.js` patch `~/.claude/settings.json` (idempotent,
 ## Still open
 | Title | Location | Severity | Note |
 |---|---|---|---|
-| PostCompact `additionalContext` may be dropped by the live contract | hooks/post-compact.js | P1 | Verify live; if unsupported, inject via `SessionStart:compact`. Vault FILE write is unaffected. |
+| ~~PostCompact `additionalContext` dropped~~ FIXED — moved to `SessionStart:compact` | hooks/post-compact.js | done | PostCompact has no decision control (docs-verified); recovery pointer now injected via SessionStart. Vault FILE write unaffected. |
 | Divergent git history (local orphan vs origin superset) | repo history | P2 | Owner-gated reconciliation; do not rewrite published history autonomously. |
 | Lexicographic timestamp sort == "latest" assumption | pre-compact.js / post-compact.js | P3 | Same-millisecond collision would overwrite; any timestamp-format change misorders silently. |
 | Orphaned `.vault-*.tmp` files on mid-write crash | lib/shared.js atomicWriteFileSync | P3 | Temp files are excluded from vault listing/pruning (`vault-` prefix), so harmless, but they accumulate on crash. |
@@ -70,7 +70,7 @@ CLIs: `install.js` / `uninstall.js` patch `~/.claude/settings.json` (idempotent,
 - **House rules (from continuity):** PUBLIC repo; commit as LxveAce with NO Claude co-author and noreply email; keep the standard Connect block; no PII.
 
 ## Open questions
-- Does PostCompact honor `hookSpecificOutput.additionalContext`, or must the pointer be injected via `SessionStart:compact`? (Unconfirmed live.)
+- RESOLVED (docs-verified): PostCompact has no decision control and cannot inject `additionalContext`, so the recovery pointer is injected via the `SessionStart:compact` hook. A live end-to-end confirmation on a real auto-compaction is still worth doing.
 - Is the Windows no-stdin behavior (#46601) still present in the user's version or already fixed? (Mitigated regardless by robust stdin handling.)
 - Does catalyst-ui bundle its own hook scripts or rely on this repo at the resolved path? (Hook bytes not diffed.)
 - What is LxveAce/claude-conversation-vaults, and is it the canonical Phase-6 sync destination? (Private; not fetched.)
