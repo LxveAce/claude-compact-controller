@@ -5,7 +5,8 @@
     "scripts": {
         "install-hooks": "node install.js",
         "uninstall-hooks": "node uninstall.js",
-        "status": "node status.js"
+        "status": "node status.js",
+        "test": "node --test \"tests/**/*.test.js\""
     },
     "keywords": [
         "claude",
