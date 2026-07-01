@@ -1,6 +1,6 @@
 {
     "name": "claude-compact-controller",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "description": "Smart auto-compact controller for Claude Code. Prevents context loss during compaction by saving vault backups and injecting context references.",
     "scripts": {
         "install-hooks": "node install.js",
