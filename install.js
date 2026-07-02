@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { atomicWriteFileSync } = require('./lib/shared');
 
 const SETTINGS_PATH = path.join(os.homedir(), '.claude', 'settings.json');
 
@@ -112,7 +113,7 @@ for (const [event, config] of Object.entries(hookConfigs)) {
     }
 }
 
-fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf8');
+atomicWriteFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2));
 
 console.log(`\n${installed} hook(s) added to ${SETTINGS_PATH}`);
 console.log(`Vault directory: ${VAULT_DIR}`);

@@ -6,6 +6,7 @@
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
+const { atomicWriteFileSync } = require('./lib/shared');
 
 const SETTINGS_PATH = path.join(os.homedir(), '.claude', 'settings.json');
 
@@ -68,7 +69,7 @@ if (Object.keys(settings.hooks).length === 0) {
     delete settings.hooks;
 }
 
-fs.writeFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2), 'utf8');
+atomicWriteFileSync(SETTINGS_PATH, JSON.stringify(settings, null, 2));
 
 console.log(`\n${removed} hook(s) removed from ${SETTINGS_PATH}`);
 console.log(`Vault data preserved in ${path.join(os.homedir(), '.claude', 'compact-controller', 'vault')}`);
