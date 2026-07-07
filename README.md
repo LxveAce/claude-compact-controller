@@ -25,7 +25,6 @@ Zero dependencies — just Node.js (which ships with Claude Code) and three smal
 
 **Roadmap:**
 - Add a `doctor` / self-check command (resolved install path, hooks present in settings, live-contract findings, path-mismatch detection).
-- Cut a real tagged release so installs are pinnable.
 <!-- STATUS-ROADMAP:END -->
 
 ## Problem

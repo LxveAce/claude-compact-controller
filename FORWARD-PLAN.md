@@ -1,6 +1,6 @@
 # claude-compact-controller - Forward Plan
 
-> Status: Installable, crash-safe zero-dep Node hook bundle. Token tracking, atomic writes, install dedupe, the data contract, a test suite, and CI have all landed; one headline behavior (post-compact recovery-pointer injection) remains unverified against the live hook contract. Health: nearly GREEN (blocked only on the live-contract check + a first tag). Last updated: 2026-06-30 (update on next session).
+> Status: Installable, crash-safe zero-dep Node hook bundle. Token tracking, atomic writes, install dedupe, the data contract, a test suite, CI, and tagged releases (v1.0.0, v1.0.1) have all landed; one headline behavior (post-compact recovery-pointer injection) remains unverified against the live hook contract. Health: nearly GREEN (blocked only on the live-contract check). Last updated: 2026-07-07.
 
 ## Where this stands
 **What it is:** A small, zero-dependency Node.js bundle of Claude Code lifecycle hooks that prevents context loss during auto-compaction. Three coordinated hooks:
@@ -43,11 +43,10 @@ CLIs: `install.js` / `uninstall.js` patch `~/.claude/settings.json` (idempotent,
 
 ## Features to add
 - **`doctor` / self-check command**: print the resolved install path, whether hooks are present in `settings.json`, the live-contract findings, and any catalyst-ui path mismatch.
-- **Tag a real release** (owner-gated): `package.json` says `1.0.0` but there are no tags/releases; cut a tag so installs are pinnable. Sequence after the live-contract check.
 - **Optional transcript redaction** for vaults, given `transcript_tail` may hold secrets (already documented as owner-only `0o600` + private-repo-only).
 
 ## Red-team / hardening
-- **Atomic writes** landed for `state.json`/`config.json`/vaults (tmp+rename + `0o600`). `install.js` still writes `settings.json` with a plain `writeFileSync` (backs up on unparseable read, but the write itself is non-atomic) - candidate for the same tmp+rename treatment if the owner wants belt-and-suspenders on the user's real config.
+- **Atomic writes** landed for `state.json`/`config.json`/vaults *and* `settings.json` (tmp+rename + `0o600`). `install.js` now writes the user's real config through the same `atomicWriteFileSync` (and still backs up on an unparseable read), so no non-atomic write remains.
 - **Vault contents are sensitive**: up to 50KB of raw transcript tail (may contain secrets/PII) lands in `~/.claude/compact-controller/vault/`. Owner-only perms + private-repo-only sync are documented; never commit/sync vaults from this PUBLIC repo. (catalyst-ui syncs vaults to a PRIVATE repo - keep that boundary.)
 - **Two-installer interaction**: the path-based dedupe now matches catalyst-ui's `isOurHookCommand`, so neither tool leaves orphaned/duplicate entries.
 - **Public-repo discipline**: document Windows/contract issues by linking upstream issue numbers and describing mitigations only - no session content, no user-path PII.
