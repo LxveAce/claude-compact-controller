@@ -1,19 +1,37 @@
+<div align="center">
+
 # Claude Compact Controller
+
+### A safety net for Claude Code's auto-compaction — back up the conversation before it compacts, then point Claude back to it.
+
+**Track tokens each turn. Vault the transcript before a compact. Point Claude back to it after.**
+
+[![Release](https://img.shields.io/github/v/release/LxveAce/claude-compact-controller?style=for-the-badge&label=release)](https://github.com/LxveAce/claude-compact-controller/releases)
+[![Tests](https://img.shields.io/github/actions/workflow/status/LxveAce/claude-compact-controller/test.yml?branch=master&style=for-the-badge&label=tests)](https://github.com/LxveAce/claude-compact-controller/actions/workflows/test.yml)
+[![Dependencies](https://img.shields.io/badge/dependencies-none-brightgreen?style=for-the-badge)](package.json)
+[![License](https://img.shields.io/github/license/LxveAce/claude-compact-controller?style=for-the-badge)](LICENSE)
+[![Stars](https://img.shields.io/github/stars/LxveAce/claude-compact-controller?style=for-the-badge)](https://github.com/LxveAce/claude-compact-controller/stargazers)
+
+**[Install](#install)** · **[How it works](#how-it-works)** · **[Data contract](docs/DATA-CONTRACT.md)** · **[Changelog](CHANGELOG.md)** · **[Discord](https://discord.gg/lxvelabs)**
+
+</div>
 
 > Provided **as is**, without warranty; you use it at your own risk. See [DISCLAIMER.md](DISCLAIMER.md).
 
-Smart auto-compact management for Claude Code. Prevents context loss during compaction by saving vault backups of conversation state and injecting recovery references after the compact runs.
+---
 
-Zero dependencies — just Node.js (which ships with Claude Code) and three small hook scripts.
+When Claude Code auto-compacts, it summarizes the conversation to free up context-window space — and that summary can drop things Claude was leaning on: files it just edited, a decision it made, or a multi-step job still in flight. Compact Controller wraps the compact lifecycle so the transcript tail gets backed up first, then hands Claude a pointer back to that backup once the compact is done.
+
+It's three small Node hook scripts and nothing else. No dependencies, no daemon, no background service. Node ships with Claude Code, so there's nothing extra to install.
 
 <!-- STATUS-ROADMAP:START -->
 ## Status & Roadmap
 
-**Status:** Installable, crash-safe, zero-dependency hook bundle; the install/uninstall/status flow and fail-safe error handling are working. Token tracking now reads real usage from the session transcript (the Stop payload itself carries no token fields) and is covered by an automated test suite. The post-compact recovery pointer is injected through the **SessionStart `compact`** hook — the correct channel per the Claude Code hook contract, since PostCompact has no decision control and cannot return `additionalContext`. Health: actively under development.
+**Status:** Installable, crash-safe, zero-dependency hook bundle; the install/uninstall/status flow and fail-safe error handling are working. Token tracking reads real usage from the session transcript (the Stop payload itself carries no token fields) and is covered by an automated test suite. The post-compact recovery pointer is injected through the **SessionStart `compact`** hook — the correct channel per the Claude Code hook contract, since PostCompact has no decision control and can't return `additionalContext`. Health: actively under development.
 
 **In progress / known issues:**
-- The post-compact recovery pointer now uses the SessionStart `compact` hook (the event class that supports `additionalContext`; PostCompact does not) — a live end-to-end confirmation on a real auto-compaction is still worth doing. The pre-compact vault backup file is written unconditionally regardless.
-- Once token values are non-zero end to end, confirm the downstream catalyst-ui consumer renders them correctly (it previously consumed zeros).
+- The recovery pointer now uses the SessionStart `compact` hook (the event class that supports `additionalContext`; PostCompact does not). A live end-to-end confirmation on a real auto-compaction is still worth doing. The pre-compact vault backup is written unconditionally regardless, so nothing is lost if the pointer step misfires.
+- Token tracking now reads real, non-zero usage from the transcript. The remaining cross-repo check is confirming the downstream catalyst-ui panel renders those values (it previously consumed the old 0/0 output).
 
 **Recently landed:**
 - Transcript-based token tracking (replaces the always-zero Stop-payload read).
@@ -21,17 +39,13 @@ Zero dependencies — just Node.js (which ships with Claude Code) and three smal
 - Machine-readable `node status.js --json` output, frozen in `docs/DATA-CONTRACT.md`.
 - Configurable install path (`CLAUDE_COMPACT_CONTROLLER_HOME`) with path-based, catalyst-ui-aligned hook dedupe.
 - BOM/CRLF/empty-safe stdin handling for Windows PowerShell pipes.
-- A minimal, dependency-free test suite (`npm test`) plus CI.
+- A minimal, dependency-free test suite (`npm test`) plus CI on Ubuntu and Windows.
 
 **Roadmap:**
 - Add a `doctor` / self-check command (resolved install path, hooks present in settings, live-contract findings, path-mismatch detection).
 <!-- STATUS-ROADMAP:END -->
 
-## Problem
-
-When Claude Code auto-compacts, it summarizes the conversation to free up context-window space. That summary can drop details Claude was relying on — files it edited, decisions it made, or multi-step operations still in progress. The Compact Controller wraps the compact lifecycle so a full backup is captured first and a pointer back to it is handed to Claude afterward.
-
-## How It Works
+## How it works
 
 Three hooks work together across the auto-compact lifecycle:
 
@@ -62,7 +76,7 @@ cd claude-compact-controller
 node install.js
 ```
 
-This appends three hooks to your user-level `~/.claude/settings.json` (Stop, PreCompact `auto`, SessionStart `compact`) and creates the runtime directories. It is safe to run multiple times — already-installed hooks are detected and skipped, and existing unrelated hooks are preserved. If your settings file exists but can't be parsed, it is backed up to `settings.json.bak` before being rewritten.
+This appends three hooks to your user-level `~/.claude/settings.json` (Stop, PreCompact `auto`, SessionStart `compact`) and creates the runtime directories. It's safe to run multiple times — already-installed hooks are detected and skipped, and existing unrelated hooks are preserved. If your settings file exists but can't be parsed, it's backed up to `settings.json.bak` before being rewritten.
 
 Hook ownership is detected by the resolved hooks-directory path (an exact path match, the same scheme `catalyst-ui` uses), so installs by either tool are recognized and never duplicated.
 
@@ -70,7 +84,7 @@ Restart Claude Code after installing for the hooks to take effect.
 
 ### Install path
 
-By default the installer registers hooks from the directory it is run from, so both the canonical `~/claude-compact-controller` location and arbitrary clones work. To pin a specific install root, set `CLAUDE_COMPACT_CONTROLLER_HOME` before running install/uninstall:
+By default the installer registers hooks from the directory it's run from, so both the canonical `~/claude-compact-controller` location and arbitrary clones work. To pin a specific install root, set `CLAUDE_COMPACT_CONTROLLER_HOME` before running install/uninstall:
 
 ```bash
 CLAUDE_COMPACT_CONTROLLER_HOME=/opt/claude-compact-controller node install.js
@@ -86,7 +100,7 @@ node uninstall.js
 
 Removes only the controller's hooks from settings (other hooks are left intact). Vault data is preserved on disk for manual cleanup.
 
-## Check Status
+## Check status
 
 ```bash
 node status.js
@@ -100,7 +114,7 @@ For a stable, machine-readable surface (consumed by tools such as catalyst-ui), 
 node status.js --json
 ```
 
-This emits the full state plus a vault listing as JSON with a `schema_version` field. The exact shape is frozen in [`docs/DATA-CONTRACT.md`](docs/DATA-CONTRACT.md).
+This emits the full state plus a vault listing as JSON with a `schema_version` field. The exact shape — along with the `state.json`, vault-file, and `config.json` layouts that downstream tools read — is frozen in [`docs/DATA-CONTRACT.md`](docs/DATA-CONTRACT.md).
 
 ## Configuration
 
@@ -112,7 +126,7 @@ Edit `config.json`:
 | `vault_transcript_tail_bytes` | `50000` | Bytes of transcript tail saved per vault (~12k tokens) |
 | `log_enabled` | `false` | Enable debug logging to `~/.claude/compact-controller/controller.log` |
 
-## File Layout
+## File layout
 
 ```
 claude-compact-controller/          # This repo
@@ -135,7 +149,7 @@ claude-compact-controller/          # This repo
     └── ...                         # Timestamped vault backups
 ```
 
-## Vault Format
+## Vault format
 
 Each vault file is JSON (values below are illustrative):
 
@@ -164,13 +178,24 @@ Each vault file is JSON (values below are illustrative):
 - Claude Code (with hook support)
 - Node.js (ships with Claude Code) — no external packages required
 
+## Tests
+
+The suite is dependency-free — it runs on Node's built-in test runner, nothing to `npm install`:
+
+```bash
+npm test
+```
+
+That's 18 tests covering the hooks, the token parser (including the exact 0/0 bug that shipped in v1.0.0), install/uninstall path-dedupe, and the `status.js --json` contract. CI runs the same suite on Ubuntu and Windows (Node 22) on every push and PR.
+
 ## License
 
-MIT
+MIT — see [LICENSE](LICENSE). Copyright (c) 2026 LxveAce.
 
-## Connect
+## 📫 Connect
 
-- Discord: [discord.gg/lxvelabs](https://discord.gg/lxvelabs) -- questions, help, or to talk through this project
-- GitHub: [@LxveAce](https://github.com/LxveAce)
-- Email: LxveLabs@proton.me (business) · lxveace@proton.me (direct)
-- Website: [lxvelabs.com](https://lxvelabs.com) · personal: [lxveace.com](https://lxveace.com)
+**Discord:** [discord.gg/lxvelabs](https://discord.gg/lxvelabs) · **GitHub:** [@LxveAce](https://github.com/LxveAce) · **Email:** LxveLabs@proton.me (business) · lxveace@proton.me (direct) · **Sites:** [lxvelabs.com](https://lxvelabs.com) · [lxveace.com](https://lxveace.com)
+
+---
+
+Built by LxveAce · a LxveLabs project
