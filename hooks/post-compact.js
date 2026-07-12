@@ -18,6 +18,7 @@ const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, log } = require(
 
         // Find latest vault backup
         let vaultContext = '';
+        let vaultReadError = null;
         try {
             const vaultFiles = fs.readdirSync(VAULT_DIR)
                 .filter(f => f.startsWith('vault-') && f.endsWith('.json'))
@@ -34,7 +35,9 @@ const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, log } = require(
                     'If you need context that was lost during compaction, read the vault file.'
                 ].join(' ');
             }
-        } catch {}
+        } catch (e) {
+            vaultReadError = e;
+        }
 
         // Reset counters for fresh post-compact tracking
         state.input_tokens = 0;
@@ -42,7 +45,16 @@ const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, log } = require(
         state.turn_count = 0;
         saveState(state);
 
-        log('SessionStart(compact): counters reset, vault reference injected');
+        // Report the truth (don't log "injected" when nothing was), and on a read error still point
+        // the model at the vault DIRECTORY so the user can find the latest backup manually.
+        if (vaultContext) {
+            log('SessionStart(compact): counters reset, vault reference injected');
+        } else if (vaultReadError) {
+            log(`SessionStart(compact): counters reset, vault read FAILED: ${vaultReadError.message}`);
+            vaultContext = `[Compact Controller] Context was just compacted. The latest vault backup could not be read (${vaultReadError.message}); check ${VAULT_DIR} for vault-*.json backups.`;
+        } else {
+            log('SessionStart(compact): counters reset, no vault backup found');
+        }
 
         const output = {
             continue: true,

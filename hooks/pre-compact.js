@@ -98,8 +98,17 @@ const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, loadConfig, log,
 
         process.stdout.write(JSON.stringify(output));
     } catch (e) {
-        // Never block compact on error - just allow it
-        process.stdout.write(JSON.stringify({ continue: true }));
+        // Never block compact on error — but do NOT fail silently: backing up the context before a
+        // compact is this hook's entire job, so surface the loss to the log AND to the model instead
+        // of emitting a bare {continue:true} that hides it.
+        try { log(`PreCompact: VAULT BACKUP FAILED: ${e.message}`); } catch {}
+        process.stdout.write(JSON.stringify({
+            continue: true,
+            hookSpecificOutput: {
+                hookEventName: 'PreCompact',
+                additionalContext: `[Compact Controller] WARNING: pre-compact vault backup FAILED (${e.message}). Context was NOT backed up before this compaction.`
+            }
+        }));
     }
     process.exit(0);
 })();

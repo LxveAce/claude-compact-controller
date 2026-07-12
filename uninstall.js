@@ -18,16 +18,16 @@ const INSTALL_HOME = process.env.CLAUDE_COMPACT_CONTROLLER_HOME
     ? path.resolve(process.env.CLAUDE_COMPACT_CONTROLLER_HOME)
     : __dirname;
 const HOOKS_ROOT_NORM = path.join(INSTALL_HOME, 'hooks').replace(/\\/g, '/');
+const OUR_HOOK_FILES = ['stop-hook.js', 'pre-compact.js', 'post-compact.js'];
 
+// Ownership is the exact resolved hooks path, or (for a legacy/moved install) one of our own hook
+// scripts under a compact-controller/hooks/ path. NOT a bare "compact-controller" substring — that
+// would also match, and wrongly remove, an unrelated user hook that merely reads our vault directory.
 function isOurHookCommand(command) {
     if (typeof command !== 'string') return false;
     const norm = command.replace(/\\/g, '/');
-    return norm.includes(HOOKS_ROOT_NORM) || norm.includes('compact-controller');
-}
-
-function entryIsOurs(h) {
-    if (isOurHookCommand(h?.command)) return true;
-    return Array.isArray(h?.hooks) && h.hooks.some(hh => isOurHookCommand(hh?.command));
+    if (norm.includes(HOOKS_ROOT_NORM)) return true;
+    return OUR_HOOK_FILES.some(f => norm.includes(`compact-controller/hooks/${f}`));
 }
 
 console.log('=== Claude Compact Controller - Uninstall ===\n');
@@ -35,9 +35,16 @@ console.log('=== Claude Compact Controller - Uninstall ===\n');
 let settings = {};
 try {
     settings = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8'));
-} catch {
-    console.log('No settings file found. Nothing to uninstall.');
-    process.exit(0);
+} catch (e) {
+    if (e.code === 'ENOENT') {
+        console.log('No settings file found. Nothing to uninstall.');
+        process.exit(0);
+    }
+    // The file EXISTS but won't parse — do NOT falsely report success while our hooks stay
+    // registered. Tell the user the real reason and exit non-zero without writing.
+    console.error(`Error: ${SETTINGS_PATH} exists but is not valid JSON: ${e.message}`);
+    console.error('Fix the JSON, then re-run uninstall. No changes were made.');
+    process.exit(1);
 }
 
 if (!settings.hooks) {
@@ -50,13 +57,25 @@ let removed = 0;
 // registered under PostCompact) is still cleanly removable. Removal is command-matched, so other tools'
 // SessionStart hooks are preserved.
 for (const event of ['Stop', 'PreCompact', 'SessionStart', 'PostCompact']) {
-    if (!settings.hooks[event]) continue;
+    if (!Array.isArray(settings.hooks[event])) continue;   // skip a hand-edited non-array value
 
-    const before = settings.hooks[event].length;
-    settings.hooks[event] = settings.hooks[event].filter(h => !entryIsOurs(h));
-    const after = settings.hooks[event].length;
+    let changed = false;
+    settings.hooks[event] = settings.hooks[event]
+        .map(h => {
+            // Flat shape ({command}) that is ours -> drop the whole entry.
+            if (isOurHookCommand(h?.command)) { changed = true; return null; }
+            // Nested shape: remove ONLY our sub-hooks, keeping any sibling hooks and the matcher —
+            // dropping the whole entry would take an unrelated tool's hook down with ours.
+            if (Array.isArray(h?.hooks)) {
+                const kept = h.hooks.filter(hh => !isOurHookCommand(hh?.command));
+                if (kept.length !== h.hooks.length) { changed = true; h.hooks = kept; }
+                return kept.length > 0 ? h : null;   // drop the entry only once it is empty
+            }
+            return h;
+        })
+        .filter(h => h !== null);
 
-    if (before > after) {
+    if (changed) {
         console.log(`  ${event}: removed`);
         removed++;
     }

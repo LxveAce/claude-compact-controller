@@ -36,13 +36,22 @@ try {
     settings = JSON.parse(fs.readFileSync(SETTINGS_PATH, 'utf8'));
 } catch (e) {
     if (e.code !== 'ENOENT') {
-        console.error(`Warning: Could not parse ${SETTINGS_PATH}: ${e.message}`);
-        console.error('Backing up existing file and starting fresh.');
-        fs.copyFileSync(SETTINGS_PATH, SETTINGS_PATH + '.bak');
+        // The file EXISTS but won't parse (a hand-edit: trailing comma, // comment, unquoted key).
+        // Do NOT continue with an empty object — writing our hooks onto {} and saving would ERASE the
+        // user's permissions/env/model and every other key. Back it up, explain, and abort.
+        try { fs.copyFileSync(SETTINGS_PATH, SETTINGS_PATH + '.bak'); } catch {}
+        console.error(`Error: ${SETTINGS_PATH} exists but is not valid JSON: ${e.message}`);
+        console.error(`A copy was saved to ${SETTINGS_PATH}.bak. Fix the JSON, then re-run install.`);
+        console.error('Aborting so your existing settings are not overwritten.');
+        process.exit(1);
     }
+    // ENOENT: no settings file yet — a clean first install, start from {}.
 }
 
-if (!settings.hooks) settings.hooks = {};
+// Coerce a hand-edited non-object hooks value so the per-event logic below can't crash.
+if (!settings.hooks || typeof settings.hooks !== 'object' || Array.isArray(settings.hooks)) {
+    settings.hooks = {};
+}
 
 function hookCmd(scriptName) {
     return `node "${path.join(HOOKS_DIR, scriptName).replace(/\\/g, '/')}"`;
@@ -54,9 +63,15 @@ function hookCmd(scriptName) {
 // a loose "compact-controller" substring, so the two installers agree on
 // which hooks already exist and never double-install.
 const HOOKS_ROOT_NORM = HOOKS_DIR.replace(/\\/g, '/');
+// The three hook scripts this tool installs. Used for a location-independent ownership check so an
+// install from a moved/re-cloned checkout still recognizes a prior install (and refreshes it) instead
+// of appending a duplicate entry that points at the old, now-stale path.
+const OUR_HOOK_FILES = ['stop-hook.js', 'pre-compact.js', 'post-compact.js'];
 function isOurHookCommand(command) {
-    return typeof command === 'string'
-        && command.replace(/\\/g, '/').includes(HOOKS_ROOT_NORM);
+    if (typeof command !== 'string') return false;
+    const norm = command.replace(/\\/g, '/');
+    if (norm.includes(HOOKS_ROOT_NORM)) return true;
+    return OUR_HOOK_FILES.some(f => norm.includes(`compact-controller/hooks/${f}`));
 }
 
 // Recognize both the nested shape this installer writes
@@ -65,6 +80,19 @@ function isOurHookCommand(command) {
 function entryIsOurs(h) {
     if (isOurHookCommand(h?.command)) return true;
     return Array.isArray(h?.hooks) && h.hooks.some(hh => isOurHookCommand(hh?.command));
+}
+
+// Rewrite any owned command in an event's entries to the freshly-resolved path, so an install run
+// from a moved/re-cloned checkout self-heals a stale path instead of leaving a broken hook behind.
+function refreshOwnedCommands(entries, freshCommand) {
+    for (const h of entries) {
+        if (isOurHookCommand(h?.command)) { h.command = freshCommand; continue; }
+        if (Array.isArray(h?.hooks)) {
+            for (const hh of h.hooks) {
+                if (isOurHookCommand(hh?.command)) hh.command = freshCommand;
+            }
+        }
+    }
 }
 
 const hookConfigs = {
@@ -100,12 +128,15 @@ const hookConfigs = {
 
 let installed = 0;
 for (const [event, config] of Object.entries(hookConfigs)) {
-    if (!settings.hooks[event]) settings.hooks[event] = [];
+    // Coerce a hand-edited non-array event value so .some()/.push() below can't crash.
+    if (!Array.isArray(settings.hooks[event])) settings.hooks[event] = [];
 
     const alreadyInstalled = settings.hooks[event].some(entryIsOurs);
 
     if (alreadyInstalled) {
-        console.log(`  ${event}: already installed, skipping`);
+        // Refresh the path in case this install moved (self-heal) rather than appending a duplicate.
+        refreshOwnedCommands(settings.hooks[event], config.hooks[0].command);
+        console.log(`  ${event}: already installed (path refreshed)`);
     } else {
         settings.hooks[event].push(config);
         console.log(`  ${event}: installed`);
