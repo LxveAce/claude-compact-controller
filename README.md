@@ -186,7 +186,7 @@ The suite is dependency-free — it runs on Node's built-in test runner, nothing
 npm test
 ```
 
-That's 18 tests covering the hooks, the token parser (including the exact 0/0 bug that shipped in v1.0.0), install/uninstall path-dedupe, and the `status.js --json` contract. CI runs the same suite on Ubuntu and Windows (Node 22) on every push and PR.
+That's 28 tests covering the hooks, the token parser (including the exact 0/0 bug that shipped in v1.0.0), install/uninstall path-dedupe, the `status.js --json` contract, and the audit-fix regression guards. CI runs the same suite on Ubuntu and Windows (Node 22) on every push and PR.
 
 ## License
 
