@@ -2,7 +2,7 @@
 
 # Claude Compact Controller
 
-### A safety net for Claude Code's auto-compaction — back up the conversation before it compacts, then point Claude back to it.
+### A safety net for Claude Code's auto-compaction: back up the conversation before it compacts, then point Claude back to it.
 
 **Track tokens each turn. Vault the transcript before a compact. Point Claude back to it after.**
 
@@ -20,14 +20,14 @@
 
 ---
 
-When Claude Code auto-compacts, it summarizes the conversation to free up context-window space — and that summary can drop things Claude was leaning on: files it just edited, a decision it made, or a multi-step job still in flight. Compact Controller wraps the compact lifecycle so the transcript tail gets backed up first, then hands Claude a pointer back to that backup once the compact is done.
+When Claude Code auto-compacts, it summarizes the conversation to free up context-window space, and that summary can drop things Claude was leaning on: files it just edited, a decision it made, or a multi-step job still in flight. Compact Controller wraps the compact lifecycle so the transcript tail gets backed up first, then hands Claude a pointer back to that backup once the compact is done.
 
-It's three small Node hook scripts and nothing else. No dependencies, no daemon, no background service. Node ships with Claude Code, so there's nothing extra to install.
+It's three small Node hook scripts and nothing else: no dependencies, no daemon, no background service. Node ships with Claude Code, so there's nothing extra to install.
 
 <!-- STATUS-ROADMAP:START -->
 ## Status & Roadmap
 
-**Status:** Installable, crash-safe, zero-dependency hook bundle; the install/uninstall/status flow and fail-safe error handling are working. Token tracking reads real usage from the session transcript (the Stop payload itself carries no token fields) and is covered by an automated test suite. The post-compact recovery pointer is injected through the **SessionStart `compact`** hook — the correct channel per the Claude Code hook contract, since PostCompact has no decision control and can't return `additionalContext`. Health: actively under development.
+**Status:** Installable, crash-safe, zero-dependency hook bundle; the install/uninstall/status flow and fail-safe error handling are working. Token tracking reads real usage from the session transcript (the Stop payload itself carries no token fields) and is covered by an automated test suite. The post-compact recovery pointer is injected through the **SessionStart `compact`** hook, the correct channel per the Claude Code hook contract, since PostCompact has no decision control and can't return `additionalContext`. Health: actively under development.
 
 **In progress / known issues:**
 - The recovery pointer now uses the SessionStart `compact` hook (the event class that supports `additionalContext`; PostCompact does not). A live end-to-end confirmation on a real auto-compaction is still worth doing. The pre-compact vault backup is written unconditionally regardless, so nothing is lost if the pointer step misfires.
@@ -49,11 +49,11 @@ It's three small Node hook scripts and nothing else. No dependencies, no daemon,
 
 Three hooks work together across the auto-compact lifecycle:
 
-1. **Stop hook** — fires after every Claude response. Reads the latest usage from the session transcript (the Stop payload carries no token fields) to track the current context-window size (`input_tokens`), accumulates output tokens across turns, and increments a turn counter in a persistent state file. Counters reset automatically when a new session starts.
+1. **Stop hook** fires after every Claude response. It reads the latest usage from the session transcript (the Stop payload carries no token fields) to track the current context-window size (`input_tokens`), accumulates output tokens across turns, and increments a turn counter in a persistent state file. Counters reset automatically when a new session starts.
 
-2. **PreCompact hook** (matcher `auto`) — fires right before auto-compaction. Reads the tail of the conversation transcript and writes it to a timestamped vault file, then prunes old vaults beyond the retention limit. Injects an `additionalContext` message so Claude knows a backup was saved.
+2. **PreCompact hook** (matcher `auto`) fires right before auto-compaction. It reads the tail of the conversation transcript and writes it to a timestamped vault file, then prunes old vaults beyond the retention limit. It injects an `additionalContext` message so Claude knows a backup was saved.
 
-3. **SessionStart hook** (matcher `compact`) — fires right after auto or manual compaction. Injects a message pointing Claude to the most recent vault file so it can recover any lost context, then resets the token/turn counters for fresh post-compact tracking. (It runs `hooks/post-compact.js`; it must be SessionStart, not PostCompact — only SessionStart-class events can inject `additionalContext` into the model.)
+3. **SessionStart hook** (matcher `compact`) fires right after auto or manual compaction. It injects a message pointing Claude to the most recent vault file so it can recover any lost context, then resets the token/turn counters for fresh post-compact tracking. (It runs `hooks/post-compact.js`; it must be SessionStart, not PostCompact, because only SessionStart-class events can inject `additionalContext` into the model.)
 
 ```
 Normal operation:        Stop hook tracks tokens each turn
@@ -67,7 +67,7 @@ Post-compact:            SessionStart(compact) injects vault reference, resets c
 Claude continues:        Can read the vault file if context was lost
 ```
 
-Hooks are designed to fail safe — any error is swallowed so the controller can never crash Claude Code or block a compaction.
+The hooks are designed to fail safe: they swallow any error so the controller can never crash Claude Code or block a compaction.
 
 ## Install
 
@@ -76,7 +76,7 @@ cd claude-compact-controller
 node install.js
 ```
 
-This appends three hooks to your user-level `~/.claude/settings.json` (Stop, PreCompact `auto`, SessionStart `compact`) and creates the runtime directories. It's safe to run multiple times — already-installed hooks are detected and skipped, and existing unrelated hooks are preserved. If your settings file exists but can't be parsed, it's backed up to `settings.json.bak` before being rewritten.
+This appends three hooks to your user-level `~/.claude/settings.json` (Stop, PreCompact `auto`, SessionStart `compact`) and creates the runtime directories. It's safe to run multiple times: already-installed hooks are detected and skipped, and existing unrelated hooks are preserved. If your settings file exists but can't be parsed, it's backed up to `settings.json.bak` before being rewritten.
 
 Hook ownership is detected by the resolved hooks-directory path (an exact path match, the same scheme `catalyst-ui` uses), so installs by either tool are recognized and never duplicated.
 
@@ -114,7 +114,7 @@ For a stable, machine-readable surface (consumed by tools such as catalyst-ui), 
 node status.js --json
 ```
 
-This emits the full state plus a vault listing as JSON with a `schema_version` field. The exact shape — along with the `state.json`, vault-file, and `config.json` layouts that downstream tools read — is frozen in [`docs/DATA-CONTRACT.md`](docs/DATA-CONTRACT.md).
+This emits the full state plus a vault listing as JSON with a `schema_version` field. The exact shape, along with the `state.json`, vault-file, and `config.json` layouts that downstream tools read, is frozen in [`docs/DATA-CONTRACT.md`](docs/DATA-CONTRACT.md).
 
 ## Configuration
 
@@ -170,17 +170,17 @@ Each vault file is JSON (values below are illustrative):
 
 ## Notes
 
-- `input_tokens` reflects the full context-window size for a turn (fresh + cache-read + cache-created tokens), read from the transcript — not an incremental delta.
+- `input_tokens` reflects the full context-window size for a turn (fresh + cache-read + cache-created tokens), read from the transcript, not an incremental delta.
 - stdin parsing strips a leading UTF-8 BOM and normalizes CRLF, so the hooks work when fed JSON through Windows PowerShell pipes as well as POSIX shells.
 
 ## Requirements
 
 - Claude Code (with hook support)
-- Node.js (ships with Claude Code) — no external packages required
+- Node.js (ships with Claude Code), no external packages required
 
 ## Tests
 
-The suite is dependency-free — it runs on Node's built-in test runner, nothing to `npm install`:
+The suite is dependency-free: it runs on Node's built-in test runner, with nothing to `npm install`:
 
 ```bash
 npm test
@@ -190,7 +190,7 @@ That's 28 tests covering the hooks, the token parser (including the exact 0/0 bu
 
 ## License
 
-MIT — see [LICENSE](LICENSE). Copyright (c) 2026 LxveAce.
+MIT. See [LICENSE](LICENSE). Copyright (c) 2026 LxveAce.
 
 ## 📫 Connect
 
