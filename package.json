@@ -6,6 +6,7 @@
         "install-hooks": "node install.js",
         "uninstall-hooks": "node uninstall.js",
         "status": "node status.js",
+        "doctor": "node doctor.js",
         "test": "node --test \"tests/**/*.test.js\""
     },
     "keywords": [

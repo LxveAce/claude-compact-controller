@@ -42,7 +42,7 @@ It's three small Node hook scripts and nothing else: no dependencies, no daemon,
 - A minimal, dependency-free test suite (`npm test`) plus CI on Ubuntu and Windows.
 
 **Roadmap:**
-- Add a `doctor` / self-check command (resolved install path, hooks present in settings, live-contract findings, path-mismatch detection).
+- _(shipped)_ `node doctor.js` self-check — resolved install path, hooks present in settings with the right matchers, path-mismatch detection, hook-script + runtime-dir + config health.
 <!-- STATUS-ROADMAP:END -->
 
 ## How it works
@@ -116,6 +116,14 @@ node status.js --json
 
 This emits the full state plus a vault listing as JSON with a `schema_version` field. The exact shape, along with the `state.json`, vault-file, and `config.json` layouts that downstream tools read, is frozen in [`docs/DATA-CONTRACT.md`](docs/DATA-CONTRACT.md).
 
+## Check health
+
+```bash
+node doctor.js
+```
+
+A read-only self-check (it never writes). It verifies the resolved install path, that all three hooks are present in `~/.claude/settings.json` with the right matchers, that the settings entries point at **this** checkout (path-mismatch detection catches a moved/re-cloned install), that the hook scripts exist, and that the runtime dirs and `config.json` are healthy. Each result is `OK` / `WARN` / `FAIL` with a one-line fix; it exits `0` when every critical check passes and `1` otherwise, so it's usable in scripts and CI. Add `--json` for a machine-readable surface.
+
 ## Configuration
 
 Edit `config.json`:
@@ -139,7 +147,8 @@ claude-compact-controller/          # This repo
 ├── config.json                     # Configuration
 ├── install.js                      # Hook installer
 ├── uninstall.js                    # Hook remover
-└── status.js                       # Status checker
+├── status.js                       # Status checker
+└── doctor.js                       # Read-only install self-check
 
 ~/.claude/compact-controller/       # Runtime data (created automatically)
 ├── state.json                      # Current session tracking
