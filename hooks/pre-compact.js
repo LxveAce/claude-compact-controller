@@ -6,7 +6,7 @@
 
 const fs = require('fs');
 const path = require('path');
-const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, loadConfig, log, atomicWriteFileSync } = require('../lib/shared');
+const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, loadConfig, log, atomicWriteFileSync, cleanupStaleTmp } = require('../lib/shared');
 
 (async () => {
     try {
@@ -74,6 +74,9 @@ const { readStdin, loadState, saveState, ensureDirs, VAULT_DIR, loadConfig, log,
         for (const old of toDelete) {
             try { fs.unlinkSync(path.join(VAULT_DIR, old)); } catch {}
         }
+
+        // Sweep any orphaned atomic-write temp files left by a hard crash mid-write (see shared.js).
+        cleanupStaleTmp(VAULT_DIR);
 
         // Update state
         state.vault_count = (state.vault_count || 0) + 1;

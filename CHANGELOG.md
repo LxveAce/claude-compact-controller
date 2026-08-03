@@ -3,6 +3,15 @@
 All notable changes to Claude Compact Controller are documented here.
 Format: [Keep a Changelog](https://keepachangelog.com/); versioning: [SemVer](https://semver.org/).
 
+## [Unreleased]
+
+### Fixed
+- **Orphaned atomic-write temp files could accumulate.** A hard crash/kill between the temp write and the
+  atomic rename left a `.<name>.<pid>.<ms>.tmp` behind (a *caught* failure already removed its own temp).
+  Selection paths filter to `vault-*.json` so they were harmless, but they piled up on disk. The pre-compact
+  vault write now sweeps stale temps via a new `cleanupStaleTmp` helper — only ones older than an hour, so a
+  concurrent in-flight write's fresh temp is never touched.
+
 ## [1.0.1] - 2026-07-01
 
 ### Fixed

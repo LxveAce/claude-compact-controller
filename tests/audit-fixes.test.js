@@ -252,3 +252,27 @@ test('readLatestUsageFromTranscript recovers the newest usage on an oversized JS
         cleanup(home);
     }
 });
+
+test('cleanupStaleTmp sweeps an OLD orphaned atomic-write temp but keeps a fresh one + real vaults (LOW)', () => {
+    const home = makeHome();
+    try {
+        const dir = path.join(home, 'vault');
+        fs.mkdirSync(dir, { recursive: true });
+        const stale = path.join(dir, '.vault-old.json.999.111.tmp');   // orphaned by a hard crash
+        const fresh = path.join(dir, '.vault-new.json.999.222.tmp');   // a concurrent in-flight write
+        const real = path.join(dir, 'vault-2026-08-03T00-00-00-000Z.json');
+        fs.writeFileSync(stale, 'x');
+        fs.writeFileSync(fresh, 'x');
+        fs.writeFileSync(real, '{}');
+        const twoHoursAgoSec = Date.now() / 1000 - 7200;
+        fs.utimesSync(stale, twoHoursAgoSec, twoHoursAgoSec);
+
+        shared.cleanupStaleTmp(dir);   // default maxAge = 1h
+
+        assert.ok(!fs.existsSync(stale), 'an orphaned temp older than the threshold must be swept');
+        assert.ok(fs.existsSync(fresh), 'a fresh (in-flight) temp must never be swept');
+        assert.ok(fs.existsSync(real), 'a real vault-*.json must never be touched');
+    } finally {
+        cleanup(home);
+    }
+});
